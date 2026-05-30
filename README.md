@@ -1,8 +1,9 @@
 # Pironman 5
 
-A single-device service for the Pironman 5 case on a Raspberry Pi 5. It drives
-the on-board hardware, serves a live web dashboard, and keeps a lightweight
-metrics history, all from one Python package with one config file.
+A single-device service for the [Pironman 5 case](https://www.sunfounder.com/products/pironman-5-nvme-m-2-ssd-pcie-mini-pc-case-for-raspberry-pi-5)
+on a Raspberry Pi 5. It drives the on-board hardware, serves a live web
+dashboard, and keeps a lightweight metrics history, all from one Python package
+with one config file.
 
 ![Pironman 5 dashboard](webview.png)
 
