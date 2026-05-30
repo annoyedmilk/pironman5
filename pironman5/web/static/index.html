@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Pironman 5</title>
+<link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+<header>
+  <div class="brand">
+    <div class="title">Pironman 5 <span class="tag" id="mock-tag" hidden>mock</span></div>
+  </div>
+  <div class="status"><span class="dot" id="conn-dot"></span><span id="conn-text">connecting</span></div>
+  <button class="icon-btn" id="theme-toggle" aria-label="Toggle theme">☾</button>
+</header>
+
+<main>
+  <div class="grid">
+
+    <!-- GAUGES -->
+    <section class="card col-3">
+      <h2>CPU</h2>
+      <div class="gauge">
+        <div class="ring" id="cpu-ring" style="--p:0;--c:var(--accent)">0%</div>
+        <div class="gauge-meta">
+          <div class="big"><span id="cpu-freq">0</span><span class="unit">GHz</span></div>
+          <div class="muted"><span id="cpu-cores">0</span> cores</div>
+          <div class="muted" id="cpu-sub">load —</div>
+        </div>
+      </div>
+    </section>
+    <section class="card col-3">
+      <h2>Temperature</h2>
+      <div class="gauge">
+        <div class="ring" id="temp-ring" style="--p:0;--c:var(--orange)">0</div>
+        <div class="gauge-meta">
+          <div class="big"><span id="cpu-temp">0</span><span class="unit">°C</span></div>
+          <div class="muted" id="temp-sub">tower fan —</div>
+          <div class="muted" id="gpu-sub">GPU —</div>
+        </div>
+      </div>
+    </section>
+    <section class="card col-3">
+      <h2>Memory</h2>
+      <div class="gauge">
+        <div class="ring" id="mem-ring" style="--p:0;--c:var(--purple)">0%</div>
+        <div class="gauge-meta">
+          <div class="big"><span id="mem-used">0</span><span class="unit">/ <span id="mem-total">0</span> GB</span></div>
+          <div class="muted" id="swap-sub">swap —</div>
+        </div>
+      </div>
+    </section>
+    <section class="card col-3">
+      <h2>Storage</h2>
+      <div class="gauge">
+        <div class="ring" id="disk-ring" style="--p:0;--c:var(--green)">0%</div>
+        <div class="gauge-meta">
+          <div class="big"><span id="disk-used">0</span><span class="unit">/ <span id="disk-total">0</span> GB</span></div>
+          <div class="muted" id="nvme-sub">NVMe —</div>
+          <div class="muted" id="diskio-sub">IO —</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- HISTORY + POWER -->
+    <section class="card col-8">
+      <div class="card-head">
+        <h2>History</h2>
+        <select id="range" class="select-sm">
+          <option value="10m">last 10 min</option>
+          <option value="1h" selected>last hour</option>
+          <option value="6h">last 6 hours</option>
+          <option value="24h">last 24 hours</option>
+          <option value="7d">last 7 days</option>
+        </select>
+      </div>
+      <div class="chart-wrap" id="chart-wrap">
+        <svg class="chart" id="chart" viewBox="0 0 600 130" preserveAspectRatio="none"></svg>
+        <div class="chart-cursor" id="chart-cursor" hidden></div>
+        <div class="chart-tip" id="chart-tip" hidden></div>
+      </div>
+      <div class="legend">
+        <span><i style="background:var(--accent)"></i>CPU</span>
+        <span><i style="background:var(--orange)"></i>Temperature</span>
+        <span><i style="background:var(--purple)"></i>Memory</span>
+      </div>
+    </section>
+    <section class="card col-4">
+      <h2>Power &amp; health</h2>
+      <div class="gauge">
+        <div class="ring" id="power-ring" style="--p:0;--c:var(--green)">—</div>
+        <div class="gauge-meta">
+          <div class="big"><span id="input-v">—</span><span class="unit">V in</span></div>
+          <div class="muted">RTC battery <span id="batt-v">—</span> V</div>
+        </div>
+      </div>
+      <div class="health" id="health">
+        <span class="hchip" data-k="undervoltage">Voltage</span>
+        <span class="hchip" data-k="throttled">Throttle</span>
+        <span class="hchip" data-k="freq_capped">Freq cap</span>
+        <span class="hchip" data-k="soft_temp">Temp limit</span>
+      </div>
+    </section>
+
+    <!-- CPU CORES + NETWORK + SYSTEM -->
+    <section class="card col-4">
+      <h2>CPU cores</h2>
+      <div class="cores" id="cores"></div>
+    </section>
+    <section class="card col-4">
+      <h2>Network</h2>
+      <div class="stat-row"><span class="k">IP</span><span class="v" id="net-ip">—</span></div>
+      <div class="stat-row"><span class="k">MAC</span><span class="v" id="net-mac">—</span></div>
+      <div class="stat-row"><span class="k">Download</span><span class="v" id="net-down">—</span></div>
+      <div class="stat-row"><span class="k">Upload</span><span class="v" id="net-up">—</span></div>
+      <div class="stat-row"><span class="k">Link</span><span class="v" id="net-link">—</span></div>
+    </section>
+    <section class="card col-4">
+      <h2>System</h2>
+      <div class="stat-row"><span class="k">Model</span><span class="v" id="sys-model">—</span></div>
+      <div class="stat-row"><span class="k">Kernel</span><span class="v" id="sys-kernel">—</span></div>
+      <div class="stat-row"><span class="k">Uptime</span><span class="v" id="sys-uptime">—</span></div>
+      <div class="stat-row"><span class="k">Processes</span><span class="v" id="sys-procs">—</span></div>
+      <div class="stat-row"><span class="k">Load</span><span class="v" id="sys-load">—</span></div>
+    </section>
+
+    <!-- RGB + CASE FANS -->
+    <section class="card col-8">
+      <div class="card-head">
+        <h2>RGB Lighting</h2>
+        <label class="switch"><input type="checkbox" id="rgb-enable"><span></span></label>
+      </div>
+      <div class="rgb-body">
+        <div class="rgb-controls">
+          <div class="field"><span class="field-label">Sync all LEDs</span>
+            <label class="switch"><input type="checkbox" id="rgb-sync"><span></span></label></div>
+
+          <div id="rgb-synced">
+            <div class="field"><span class="field-label">Color</span><input type="color" id="rgb-color"></div>
+            <div class="field"><span class="field-label">Style</span>
+              <select id="rgb-style">
+                <option value="solid">Solid</option>
+                <option value="breathing">Breathing</option>
+                <option value="flow">Flow</option>
+                <option value="flow_reverse">Flow reverse</option>
+                <option value="rainbow">Rainbow</option>
+                <option value="rainbow_reverse">Rainbow reverse</option>
+                <option value="hue_cycle">Hue cycle</option>
+              </select></div>
+            <div class="field"><span class="field-label">Speed</span>
+              <input type="range" id="rgb-speed" min="0" max="100"><span class="val" id="rgb-speed-val">50</span></div>
+          </div>
+
+          <div id="rgb-perled" hidden>
+            <div class="field col"><span class="field-label">Per-LED colors</span>
+              <div class="led-pickers" id="led-pickers"></div></div>
+          </div>
+
+          <div class="field"><span class="field-label">Brightness</span>
+            <input type="range" id="rgb-brightness" min="0" max="100"><span class="val" id="rgb-brightness-val">100</span></div>
+        </div>
+        <div class="rgb-preview"><div class="leds" id="leds"></div></div>
+      </div>
+    </section>
+    <section class="card col-4">
+      <h2>Case fans</h2>
+      <div class="fan-state">
+        <div class="fan-badge" id="fan-badge">OFF</div>
+        <div class="muted">on/off via GPIO 6</div>
+      </div>
+      <div class="field"><span class="field-label">Mode</span>
+        <select id="fan-mode">
+          <option value="off">Off</option>
+          <option value="on">On</option>
+          <option value="auto">Above temperature</option>
+        </select></div>
+      <div class="field"><span class="field-label">On above</span>
+        <input type="range" id="fan-on-temp" min="30" max="90"><span class="val"><span id="fan-on-temp-val">55</span>°C</span></div>
+    </section>
+
+    <!-- OLED (full width) -->
+    <section class="card col-12">
+      <h2>OLED Display</h2>
+      <div class="oled-body">
+        <div class="oled-settings">
+          <div class="field"><span class="field-label">Enable</span>
+            <label class="switch"><input type="checkbox" id="oled-enable"><span></span></label></div>
+          <div class="field"><span class="field-label">Rotation</span>
+            <select id="oled-rotation"><option value="0">0°</option><option value="180">180°</option></select></div>
+          <div class="field"><span class="field-label">Sleep after</span>
+            <input type="range" id="oled-sleep" min="0" max="120"><span class="val"><span id="oled-sleep-val">0</span>s</span></div>
+        </div>
+        <div class="oled-screen" id="oled-preview"></div>
+      </div>
+    </section>
+
+  </div>
+</main>
+<div class="toast" id="toast"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,3 @@
+# Allow the service user to power the machine down, reboot, and restart itself.
+# Install to /etc/sudoers.d/pironman5 with mode 0440.
+pironman5 ALL=(root) NOPASSWD: /usr/bin/systemctl poweroff -i, /usr/bin/systemctl reboot -i, /usr/bin/systemctl restart pironman5
