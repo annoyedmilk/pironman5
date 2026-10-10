@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 #
-# Installer for the Pironman 5 service on Raspberry Pi OS (Bookworm, 64-bit).
+# Installer for the Pironman 5 service on Raspberry Pi OS (64-bit, Bookworm or later).
 # Run from a checkout of this repository: sudo ./deploy/install.sh
 #
 # It creates a dedicated service user, installs the package into a virtualenv
-# under /opt/pironman5, drops the device-tree overlay, udev rules, sudoers and
-# systemd unit, then enables the service. Everything is local and auditable;
-# nothing is piped from the network into a shell.
+# under /opt/pironman5, drops the device-tree overlay and systemd unit, then
+# enables the service. If uv is absent, its upstream install script is
+# downloaded and run.
 
 set -euo pipefail
 
@@ -34,7 +34,7 @@ install -m 0644 "$REPO_DIR/deploy/overlays/sunfounder-pironman5.dtbo" /boot/over
 
 echo "==> Creating service user '$SERVICE_USER'"
 id -u "$SERVICE_USER" &>/dev/null || useradd --system --no-create-home --shell /usr/sbin/nologin "$SERVICE_USER"
-for grp in spi i2c gpio input video; do
+for grp in spi i2c gpio video; do
     getent group "$grp" >/dev/null && usermod -aG "$grp" "$SERVICE_USER" || true
 done
 
@@ -55,16 +55,14 @@ mkdir -p "$PREFIX"
 "$UV" venv "$PREFIX/venv"
 "$UV" pip install --python "$PREFIX/venv/bin/python" "$REPO_DIR[hardware]"
 
-echo "==> Installing config, udev rules, sudoers and service"
+echo "==> Installing config and service"
 mkdir -p "$CONFIG_DIR"
 chown "$SERVICE_USER:$SERVICE_USER" "$CONFIG_DIR"
-install -m 0644 "$REPO_DIR/deploy/99-com.rules" /etc/udev/rules.d/99-com.rules
-install -m 0440 "$REPO_DIR/deploy/pironman5.sudoers" /etc/sudoers.d/pironman5
 install -m 0644 "$REPO_DIR/deploy/pironman5.service" /etc/systemd/system/pironman5.service
 
-udevadm control --reload-rules && udevadm trigger || true
 systemctl daemon-reload
-systemctl enable --now pironman5
+systemctl enable pironman5
+systemctl restart pironman5
 
 echo
 echo "Done. The dashboard is on http://<this-pi>:34001"

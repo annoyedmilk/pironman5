@@ -18,11 +18,12 @@ with one config file.
   - WS2812 RGB strip with solid, breathing, flow, rainbow and hue-cycle effects,
     synced across all LEDs or set per LED
   - Case fans with off / on / above-temperature modes
-  - SSD1306 OLED status screen (CPU, temperature, memory, power, IP) with a
-    sleep timeout
+  - SSD1306 OLED status screen (temperature, CPU, memory, disk, power, fan
+    state, IP, under-voltage and throttle alerts) with brightness and a sleep
+    timeout
   - Light and dark themes
-- **History** stored in SQLite with configurable retention, charted with hover
-  read-out in the UI.
+- **History** with configurable retention: the last hour in memory, one row per
+  minute in SQLite, charted with hover read-out in the UI.
 - **One config file**, validated, editable live from the dashboard or the CLI.
   The dashboard always reflects the running hardware state.
 - **Mock mode** so the whole service and UI run on a laptop without any hardware.
@@ -52,7 +53,7 @@ sudo ./deploy/install.sh
 
 The installer creates a dedicated `pironman5` service user, installs the package
 into a virtualenv under `/opt/pironman5`, enables SPI/I2C, installs the
-device-tree overlay, udev rules and systemd unit, and starts the service. Open
+device-tree overlay and systemd unit, and starts the service. Open
 `http://<your-pi>:34001` for the dashboard. A reboot is recommended so the
 overlays take effect.
 
@@ -85,10 +86,14 @@ Config is a single JSON file. By default it lives at
 `/etc/pironman5/config.json`. Override with `--config` or the
 `PIRONMAN5_CONFIG` environment variable.
 
+The history database `history.db` is next to the config file. The service
+keeps it in its systemd state directory, `/var/lib/pironman5`.
+
 Sections: `system`, `rgb`, `fan`, `oled`, `history`, `web`. Every value is
 validated and clamped on load and on every change, so a bad edit cannot break
 the service. Changes made through the dashboard are applied to the running
-hardware immediately and persisted.
+hardware immediately and persisted. `fan.gpio_pin`, `history.db_path`,
+`web.host` and `web.port` can be set only with the CLI or in the file.
 
 ## HTTP API
 
@@ -120,8 +125,8 @@ pironman5/
   metrics/          system metrics collection
   history/          SQLite time-series store
   hardware/         fan, rgb, oled, gpio (each with a mock fallback)
-  web/              FastAPI app, REST + WebSocket API, static dashboard
-deploy/             systemd unit, sudoers, udev rules, overlay, installer
+  web/              HTTP and WebSocket server (standard library), REST API, static dashboard
+deploy/             systemd unit, overlay, installer
 tests/              pytest suite
 ```
 

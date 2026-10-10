@@ -7,9 +7,9 @@ Wants=network-online.target
 Type=simple
 User=pironman5
 Group=pironman5
-# Hardware access groups: SPI, I2C, GPIO, input devices, and video for the
-# VideoCore mailbox (vcgencmd: power, voltages, throttle status).
-SupplementaryGroups=spi i2c gpio input video
+# Hardware access groups: SPI, I2C, GPIO, and video for the VideoCore mailbox
+# (vcgencmd: power, voltages, throttle status).
+SupplementaryGroups=spi i2c gpio video
 # systemd creates /var/lib/pironman5 owned by the service user. lgpio writes its
 # notify pipe into the working directory and HOME, so both must be writable.
 StateDirectory=pironman5
@@ -18,7 +18,7 @@ Environment=HOME=/var/lib/pironman5
 ExecStart=/opt/pironman5/venv/bin/pironman5 run
 Restart=on-failure
 RestartSec=3
-# Config and history live under this directory.
+# The history database is in the state directory.
 Environment=PIRONMAN5_CONFIG=/etc/pironman5/config.json
 
 [Install]

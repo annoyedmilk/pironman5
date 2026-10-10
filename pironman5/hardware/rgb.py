@@ -1,211 +1,172 @@
-"""WS2812 RGB strip over SPI (``/dev/spidev0.0``) using Adafruit NeoPixel_SPI.
+"""WS2812 strip over SPI through Adafruit NeoPixel_SPI.
 
-Implements a handful of lighting effects (solid, breathing, flow, rainbow, hue
-cycle). The current per-LED colours are exposed via ``led_colors`` so the web UI
-can render a live preview, which also makes the effects testable in mock mode.
+frame() is the full lighting logic. The driver thread only shows its result.
 """
 
 from __future__ import annotations
 
-import asyncio
+import threading
+import time
+from collections.abc import Callable
+from functools import partial
+from typing import Any
 
-from ..config import RGB_STYLES
+from ..config import RGBConfig
 from ..logger import get_logger
 
 log = get_logger("rgb")
 
+Color = tuple[int, int, int]
+Frame = tuple[list[Color], float | None]  # colors, seconds to the next frame (None: static)
 
-def _map(x: float, in_min: float, in_max: float, out_min: float, out_max: float) -> float:
-    return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
+BLACK: Color = (0, 0, 0)
+FRAME_TIME = 1 / 30
 
 
-def _hex_to_rgb(value: str) -> tuple[int, int, int]:
+def _from_speed(cfg: RGBConfig, slow: float, fast: float) -> float:
+    return slow + (fast - slow) * cfg.speed / 100
+
+
+def _scaled(color: Color, k: float) -> Color:
+    r, g, b = color
+    return int(r * k), int(g * k), int(b * k)
+
+
+def _rgb(value: str, cfg: RGBConfig) -> Color:
+    """A hex color at the configured brightness."""
     v = value.strip().lstrip("#")
-    return int(v[0:2], 16), int(v[2:4], 16), int(v[4:6], 16)
+    return _scaled((int(v[0:2], 16), int(v[2:4], 16), int(v[4:6], 16)), cfg.brightness / 100)
 
 
-def _hsl_to_rgb(hue: float, saturation: float = 1.0, brightness: float = 1.0) -> tuple[int, int, int]:
-    hue %= 360
-    hi = int((hue / 60) % 6)
-    f = hue / 60.0 - hi
-    p = brightness * (1 - saturation)
-    q = brightness * (1 - f * saturation)
-    t = brightness * (1 - (1 - f) * saturation)
-    r, g, b = [
-        (brightness, t, p),
-        (q, brightness, p),
-        (p, brightness, t),
-        (p, q, brightness),
-        (t, p, brightness),
-        (brightness, p, q),
-    ][hi]
+def _hue(hue: float, cfg: RGBConfig) -> Color:
+    """A fully saturated hue (degrees) at the configured brightness."""
+    v = cfg.brightness / 100
+    h = hue % 360 / 60
+    rise, fall = v * (h % 1), v * (1 - h % 1)
+    r, g, b = [(v, rise, 0), (fall, v, 0), (0, v, rise), (0, fall, v), (rise, 0, v), (v, 0, fall)][int(h)]
     return int(r * 255), int(g * 255), int(b * 255)
 
 
-class _MockStrip:
-    """Stands in for NeoPixel_SPI off the Pi - just holds pixel state."""
+def _degrees(cfg: RGBConfig, t: float) -> float:
+    return t * 2 / _from_speed(cfg, 0.1, 0.005)
 
-    def __init__(self, count: int) -> None:
-        self.pixels = [(0, 0, 0)] * count
 
-    def __setitem__(self, i: int, color) -> None:
-        self.pixels[i] = tuple(color)
+def _solid(cfg: RGBConfig, t: float) -> Frame:
+    return [_rgb(cfg.color, cfg)] * cfg.led_count, None
 
-    def fill(self, color) -> None:
-        self.pixels = [tuple(color)] * len(self.pixels)
+
+def _breathing(cfg: RGBConfig, t: float) -> Frame:
+    phase = t / _from_speed(cfg, 10.0, 1.0) % 1
+    return [_scaled(_rgb(cfg.color, cfg), 1 - abs(2 * phase - 1))] * cfg.led_count, FRAME_TIME
+
+
+def _flow(cfg: RGBConfig, t: float, reverse: bool = False) -> Frame:
+    step = _from_speed(cfg, 0.5, 0.1)
+    lit = int(t / step) % cfg.led_count
+    colors = [BLACK] * cfg.led_count
+    colors[-1 - lit if reverse else lit] = _rgb(cfg.color, cfg)
+    return colors, step - t % step
+
+
+def _rainbow(cfg: RGBConfig, t: float, reverse: bool = False) -> Frame:
+    n = cfg.led_count
+    colors = [_hue(i * 360 / n + _degrees(cfg, t), cfg) for i in range(n)]
+    return colors[::-1] if reverse else colors, FRAME_TIME
+
+
+def _hue_cycle(cfg: RGBConfig, t: float) -> Frame:
+    return [_hue(_degrees(cfg, t), cfg)] * cfg.led_count, FRAME_TIME
+
+
+EFFECTS: dict[str, Callable[[RGBConfig, float], Frame]] = {
+    "solid": _solid,
+    "breathing": _breathing,
+    "flow": _flow,
+    "flow_reverse": partial(_flow, reverse=True),
+    "rainbow": _rainbow,
+    "rainbow_reverse": partial(_rainbow, reverse=True),
+    "hue_cycle": _hue_cycle,
+}
+
+
+def frame(cfg: RGBConfig, t: float) -> Frame:
+    """The LED colors at time t."""
+    if not cfg.enable:
+        return [BLACK] * cfg.led_count, None
+    if not cfg.sync:
+        return [_rgb(color, cfg) for color in cfg.colors], None
+    return EFFECTS[cfg.style](cfg, t)
+
+
+class NullStrip:
+    def __setitem__(self, index: int, color: Color) -> None:
+        pass
 
     def show(self) -> None:
         pass
 
 
+def open_strip(count: int, mock: bool) -> Any:
+    if mock:
+        return NullStrip()
+    try:
+        import board
+        import neopixel_spi as neopixel
+
+        strip = neopixel.NeoPixel_SPI(board.SPI(), count, pixel_order=neopixel.GRB, auto_write=False)
+        strip.fill(0)
+        strip.show()
+        log.info("WS2812 strip opened (%d LEDs over SPI)", count)
+        return strip
+    except Exception as exc:  # noqa: BLE001, the Adafruit stack raises its own exception types
+        log.warning("WS2812 unavailable (%s) - LEDs have no effect", exc)
+        return NullStrip()
+
+
 class RGBDriver:
-    def __init__(self, config, mock: bool = False) -> None:
-        self.cfg = config              # RGBConfig
-        self.mock = mock
-        self.running = False
-        self.led_colors: list[list[int]] = [[0, 0, 0]] * config.led_count
-        self._counter = 0
-        self._strip = None
-        self._strip = self._open()
+    def __init__(self, cfg: RGBConfig, mock: bool = False) -> None:
+        self.cfg = cfg
+        self.colors: list[Color] = [BLACK] * cfg.led_count
+        self._mock = mock
+        self._strip = open_strip(cfg.led_count, mock)
+        self._wake = threading.Event()
+        self._running = True
+        self._thread = threading.Thread(target=self._run, name="rgb", daemon=True)
 
-    def _open(self):
-        if self.mock:
-            return _MockStrip(self.cfg.led_count)
-        try:
-            import board  # type: ignore
-            import neopixel_spi as neopixel  # type: ignore
+    def start(self) -> None:
+        self._thread.start()
 
-            strip = neopixel.NeoPixel_SPI(
-                board.SPI(),
-                self.cfg.led_count,
-                pixel_order=neopixel.GRB,
-                auto_write=False,
-            )
-            strip.fill(0)
-            strip.show()
-            log.info("WS2812 strip opened (%d LEDs over SPI)", self.cfg.led_count)
-            return strip
-        except Exception as exc:
-            log.warning("WS2812 unavailable (%s) - running mock", exc)
-            self.mock = True
-            return _MockStrip(self.cfg.led_count)
+    def apply(self, cfg: RGBConfig) -> None:
+        self.cfg = cfg
+        self._wake.set()
 
-    def apply_config(self) -> None:
-        # A LED-count change requires re-opening the strip.
-        if len(self.led_colors) != self.cfg.led_count:
-            self.stop_strip()
-            self.led_colors = [[0, 0, 0]] * self.cfg.led_count
-            self._strip = self._open()
-
-    # ---- low-level helpers -------------------------------------------------
-
-    def _push(self, colors: list[tuple[int, int, int]]) -> None:
-        for i, c in enumerate(colors):
-            self._strip[i] = c
-            self.led_colors[i] = list(c)
+    def _show(self, colors: list[Color]) -> None:
+        if colors == self.colors:
+            return
+        if len(colors) != len(self.colors):
+            self._show([BLACK] * len(self.colors))
+            self._strip = open_strip(len(colors), self._mock)
+        for i, color in enumerate(colors):
+            self._strip[i] = color
         self._strip.show()
+        self.colors = colors
 
-    def _fill(self, color: tuple[int, int, int]) -> None:
-        self._strip.fill(color)
-        self.led_colors = [list(color)] * self.cfg.led_count
-        self._strip.show()
-
-    def _scaled(self) -> tuple[int, int, int]:
-        r, g, b = _hex_to_rgb(self.cfg.color)
-        k = self.cfg.brightness * 0.01
-        return int(r * k), int(g * k), int(b * k)
-
-    def _scaled_list(self) -> list[tuple[int, int, int]]:
-        """Per-LED colors scaled by brightness (used when sync is off)."""
-        k = self.cfg.brightness * 0.01
-        out = []
-        for i in range(self.cfg.led_count):
-            hexv = self.cfg.colors[i] if i < len(self.cfg.colors) else self.cfg.color
-            r, g, b = _hex_to_rgb(hexv)
-            out.append((int(r * k), int(g * k), int(b * k)))
-        return out
-
-    # ---- effects (return the sleep delay for the next frame) ---------------
-
-    async def _solid(self) -> None:
-        self._fill(self._scaled())
-        await asyncio.sleep(0.5)
-
-    async def _breathing(self) -> None:
-        period = 200
-        self._counter %= period
-        delay = _map(self.cfg.speed, 0, 100, 0.05, 0.005)
-        base = self._scaled()
-        i = self._counter if self._counter < 100 else period - self._counter
-        self._fill(tuple(int(x * i * 0.01) for x in base))
-        self._counter += 1
-        await asyncio.sleep(delay)
-
-    async def _flow(self, reverse: bool = False) -> None:
-        n = self.cfg.led_count
-        self._counter %= n
-        delay = _map(self.cfg.speed, 0, 100, 0.5, 0.1)
-        colors = [(0, 0, 0)] * n
-        idx = (n - 1 - self._counter) if reverse else self._counter
-        colors[idx] = self._scaled()
-        self._push(colors)
-        self._counter += 1
-        await asyncio.sleep(delay)
-
-    async def _flow_reverse(self) -> None:
-        await self._flow(reverse=True)
-
-    async def _rainbow(self, reverse: bool = False) -> None:
-        n = self.cfg.led_count
-        self._counter %= 360
-        delay = _map(self.cfg.speed, 0, 100, 0.1, 0.005)
-        order = list(range(n))[:: -1 if reverse else 1]
-        colors = [(0, 0, 0)] * n
-        for i, led in enumerate(order):
-            hue = i * 360.0 / n + self._counter
-            colors[led] = _hsl_to_rgb(hue, 1, self.cfg.brightness * 0.01)
-        self._push(colors)
-        self._counter += 2
-        await asyncio.sleep(delay)
-
-    async def _rainbow_reverse(self) -> None:
-        await self._rainbow(reverse=True)
-
-    async def _hue_cycle(self) -> None:
-        self._counter %= 360
-        delay = _map(self.cfg.speed, 0, 100, 0.1, 0.005)
-        self._fill(_hsl_to_rgb(self._counter, 1, self.cfg.brightness * 0.01))
-        self._counter += 2
-        await asyncio.sleep(delay)
-
-    # ---- main loop ---------------------------------------------------------
-
-    async def run(self) -> None:
-        self.running = True
-        log.info("rgb driver started (style=%s, mock=%s)", self.cfg.style, self.mock)
-        while self.running:
-            if not self.cfg.enable:
-                self._fill((0, 0, 0))
-                await asyncio.sleep(0.5)
-                continue
-            if not self.cfg.sync:
-                # Per-LED static colors; animated styles only apply when synced.
-                self._push(self._scaled_list())
-                await asyncio.sleep(0.2)
-                continue
-            style = self.cfg.style if self.cfg.style in RGB_STYLES else "solid"
+    def _run(self) -> None:
+        """Thread body. A static frame waits for the next config change."""
+        log.info("rgb driver started (style=%s)", self.cfg.style)
+        while self._running:
+            self._wake.clear()
             try:
-                await getattr(self, f"_{style}")()
-            except Exception:
-                log.exception("rgb effect %s failed", style)
-                await asyncio.sleep(1.0)
-
-    def stop_strip(self) -> None:
-        try:
-            self._fill((0, 0, 0))
-        except Exception:  # pragma: no cover
-            pass
+                colors, delay = frame(self.cfg, time.monotonic())
+                self._show(colors)
+            except Exception:  # keep the thread alive, the SPI backend raises its own types
+                log.exception("rgb frame failed")
+                delay = 1.0
+            self._wake.wait(delay)
 
     def stop(self) -> None:
-        self.running = False
-        self.stop_strip()
+        self._running = False
+        self._wake.set()
+        if self._thread.is_alive():
+            self._thread.join()
+        self._show([BLACK] * len(self.colors))

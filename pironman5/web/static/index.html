@@ -1,203 +1,257 @@
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
 <title>Pironman 5</title>
-<link rel="stylesheet" href="/static/style.css" />
+<meta name="theme-color" content="#f9f9f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d0d0d" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="icon" href="/static/icon.svg">
+<link rel="apple-touch-icon" href="/static/icon-192.png">
+<link rel="manifest" href="/static/manifest.webmanifest">
+<script>try { const t = localStorage.getItem("pironman5-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
+<link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-<header>
+<svg hidden>
+  <symbol id="i-ok" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7"/><path d="M4.8 8.3l2.1 2.1 4.3-4.6" fill="none" stroke="var(--surface)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-past" viewBox="0 0 16 16"><path d="M8 1.2 15.4 14H.6z"/><path d="M8 6v4m0 2v.2" fill="none" stroke="var(--surface)" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-now" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7"/><path d="M5.4 5.4l5.2 5.2m0-5.2l-5.2 5.2" fill="none" stroke="var(--surface)" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-none" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+</svg>
+
+<header class="top">
   <div class="brand">
-    <div class="title">Pironman 5 <span class="tag" id="mock-tag" hidden>mock</span></div>
+    <h1>Pironman 5</h1>
+    <span id="hostname"></span>
+    <span id="mock-tag" class="badge" hidden>mock</span>
   </div>
-  <div class="status"><span class="dot" id="conn-dot"></span><span id="conn-text">connecting</span></div>
-  <button class="icon-btn" id="theme-toggle" aria-label="Toggle theme">☾</button>
+  <nav class="seg" aria-label="View">
+    <a href="#overview" data-view="overview">Overview</a>
+    <a href="#settings" data-view="settings">Settings</a>
+  </nav>
+  <div class="conn" id="conn"><i></i><span id="conn-text">Connecting</span></div>
+  <button class="icon-btn" id="theme-toggle" aria-label="Switch between light and dark theme">
+    <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 1.8a6.2 6.2 0 0 1 0 12.4z" fill="currentColor"/></svg>
+  </button>
 </header>
 
 <main>
-  <div class="grid">
+<div id="overview" class="view grid">
 
-    <!-- GAUGES -->
-    <section class="card col-3">
-      <h2>CPU</h2>
-      <div class="gauge">
-        <div class="ring" id="cpu-ring" style="--p:0;--c:var(--accent)">0%</div>
-        <div class="gauge-meta">
-          <div class="big"><span id="cpu-freq">0</span><span class="unit">GHz</span></div>
-          <div class="muted"><span id="cpu-cores">0</span> cores</div>
-          <div class="muted" id="cpu-sub">load —</div>
-        </div>
-      </div>
-    </section>
-    <section class="card col-3">
-      <h2>Temperature</h2>
-      <div class="gauge">
-        <div class="ring" id="temp-ring" style="--p:0;--c:var(--orange)">0</div>
-        <div class="gauge-meta">
-          <div class="big"><span id="cpu-temp">0</span><span class="unit">°C</span></div>
-          <div class="muted" id="temp-sub">tower fan —</div>
-          <div class="muted" id="gpu-sub">GPU —</div>
-        </div>
-      </div>
-    </section>
-    <section class="card col-3">
-      <h2>Memory</h2>
-      <div class="gauge">
-        <div class="ring" id="mem-ring" style="--p:0;--c:var(--purple)">0%</div>
-        <div class="gauge-meta">
-          <div class="big"><span id="mem-used">0</span><span class="unit">/ <span id="mem-total">0</span> GB</span></div>
-          <div class="muted" id="swap-sub">swap —</div>
-        </div>
-      </div>
-    </section>
-    <section class="card col-3">
-      <h2>Storage</h2>
-      <div class="gauge">
-        <div class="ring" id="disk-ring" style="--p:0;--c:var(--green)">0%</div>
-        <div class="gauge-meta">
-          <div class="big"><span id="disk-used">0</span><span class="unit">/ <span id="disk-total">0</span> GB</span></div>
-          <div class="muted" id="nvme-sub">NVMe —</div>
-          <div class="muted" id="diskio-sub">IO —</div>
-        </div>
-      </div>
-    </section>
+  <article class="card tile span-3">
+    <h2>CPU</h2>
+    <div class="tile-main">
+      <p class="value"><span id="cpu">0</span><small>%</small></p>
+      <svg class="spark cpu" id="cpu-spark" viewBox="0 0 120 32" preserveAspectRatio="none" aria-hidden="true"></svg>
+    </div>
+    <div class="cores" id="cores" aria-label="Load of each core"></div>
+    <p class="sub" id="cpu-sub">&nbsp;</p>
+  </article>
 
-    <!-- HISTORY + POWER -->
-    <section class="card col-8">
-      <div class="card-head">
-        <h2>History</h2>
-        <select id="range" class="select-sm">
-          <option value="10m">last 10 min</option>
-          <option value="1h" selected>last hour</option>
-          <option value="6h">last 6 hours</option>
-          <option value="24h">last 24 hours</option>
-          <option value="7d">last 7 days</option>
-        </select>
-      </div>
-      <div class="chart-wrap" id="chart-wrap">
-        <svg class="chart" id="chart" viewBox="0 0 600 130" preserveAspectRatio="none"></svg>
-        <div class="chart-cursor" id="chart-cursor" hidden></div>
-        <div class="chart-tip" id="chart-tip" hidden></div>
-      </div>
-      <div class="legend">
-        <span><i style="background:var(--accent)"></i>CPU</span>
-        <span><i style="background:var(--orange)"></i>Temperature</span>
-        <span><i style="background:var(--purple)"></i>Memory</span>
-      </div>
-    </section>
-    <section class="card col-4">
-      <h2>Power &amp; health</h2>
-      <div class="gauge">
-        <div class="ring" id="power-ring" style="--p:0;--c:var(--green)">—</div>
-        <div class="gauge-meta">
-          <div class="big"><span id="input-v">—</span><span class="unit">V in</span></div>
-          <div class="muted">RTC battery <span id="batt-v">—</span> V</div>
-        </div>
-      </div>
-      <div class="health" id="health">
-        <span class="hchip" data-k="undervoltage">Voltage</span>
-        <span class="hchip" data-k="throttled">Throttle</span>
-        <span class="hchip" data-k="freq_capped">Freq cap</span>
-        <span class="hchip" data-k="soft_temp">Temp limit</span>
-      </div>
-    </section>
+  <article class="card tile span-3">
+    <h2>Temperature</h2>
+    <div class="tile-main">
+      <p class="value"><span id="temp">n/a</span><small id="temp-unit"></small></p>
+      <svg class="spark temp" id="temp-spark" viewBox="0 0 120 32" preserveAspectRatio="none" aria-hidden="true"></svg>
+    </div>
+    <p class="sub" id="temp-sub">&nbsp;</p>
+  </article>
 
-    <!-- CPU CORES + NETWORK + SYSTEM -->
-    <section class="card col-4">
-      <h2>CPU cores</h2>
-      <div class="cores" id="cores"></div>
-    </section>
-    <section class="card col-4">
-      <h2>Network</h2>
-      <div class="stat-row"><span class="k">IP</span><span class="v" id="net-ip">—</span></div>
-      <div class="stat-row"><span class="k">MAC</span><span class="v" id="net-mac">—</span></div>
-      <div class="stat-row"><span class="k">Download</span><span class="v" id="net-down">—</span></div>
-      <div class="stat-row"><span class="k">Upload</span><span class="v" id="net-up">—</span></div>
-      <div class="stat-row"><span class="k">Link</span><span class="v" id="net-link">—</span></div>
-    </section>
-    <section class="card col-4">
-      <h2>System</h2>
-      <div class="stat-row"><span class="k">Model</span><span class="v" id="sys-model">—</span></div>
-      <div class="stat-row"><span class="k">Kernel</span><span class="v" id="sys-kernel">—</span></div>
-      <div class="stat-row"><span class="k">Uptime</span><span class="v" id="sys-uptime">—</span></div>
-      <div class="stat-row"><span class="k">Processes</span><span class="v" id="sys-procs">—</span></div>
-      <div class="stat-row"><span class="k">Load</span><span class="v" id="sys-load">—</span></div>
-    </section>
+  <article class="card tile span-3">
+    <h2>Memory</h2>
+    <div class="tile-main">
+      <p class="value"><span id="mem">0</span><small>%</small></p>
+    </div>
+    <div class="meter" id="mem-meter"><i></i></div>
+    <p class="sub" id="mem-sub">&nbsp;</p>
+  </article>
 
-    <!-- RGB + CASE FANS -->
-    <section class="card col-8">
-      <div class="card-head">
-        <h2>RGB Lighting</h2>
-        <label class="switch"><input type="checkbox" id="rgb-enable"><span></span></label>
+  <article class="card tile span-3">
+    <h2>Storage</h2>
+    <div class="tile-main">
+      <p class="value"><span id="disk">0</span><small>%</small></p>
+    </div>
+    <div class="meter" id="disk-meter"><i></i></div>
+    <p class="sub" id="disk-sub">&nbsp;</p>
+  </article>
+
+  <section class="history span-12">
+    <div class="section-head">
+      <h2>History</h2>
+      <div class="seg" id="range" role="radiogroup" aria-label="Time range">
+        <label><input type="radio" name="range" value="10m"><span>10 min</span></label>
+        <label><input type="radio" name="range" value="1h" checked><span>1 hour</span></label>
+        <label><input type="radio" name="range" value="6h"><span>6 hours</span></label>
+        <label><input type="radio" name="range" value="24h"><span>24 hours</span></label>
+        <label><input type="radio" name="range" value="7d"><span>7 days</span></label>
+        <label><input type="radio" name="range" value="30d"><span>30 days</span></label>
       </div>
-      <div class="rgb-body">
-        <div class="rgb-controls">
-          <div class="field"><span class="field-label">Sync all LEDs</span>
-            <label class="switch"><input type="checkbox" id="rgb-sync"><span></span></label></div>
-
-          <div id="rgb-synced">
-            <div class="field"><span class="field-label">Color</span><input type="color" id="rgb-color"></div>
-            <div class="field"><span class="field-label">Style</span>
-              <select id="rgb-style">
-                <option value="solid">Solid</option>
-                <option value="breathing">Breathing</option>
-                <option value="flow">Flow</option>
-                <option value="flow_reverse">Flow reverse</option>
-                <option value="rainbow">Rainbow</option>
-                <option value="rainbow_reverse">Rainbow reverse</option>
-                <option value="hue_cycle">Hue cycle</option>
-              </select></div>
-            <div class="field"><span class="field-label">Speed</span>
-              <input type="range" id="rgb-speed" min="0" max="100"><span class="val" id="rgb-speed-val">50</span></div>
+    </div>
+    <div class="card chart" id="chart" tabindex="0" role="group" aria-label="History chart. Use the left and right arrow keys to read values.">
+      <div class="plot-box">
+        <div class="plot-head">
+          <h3>Load</h3>
+          <div class="legend">
+            <span><i class="key cpu"></i>CPU <b id="lg-cpu"></b></span>
+            <span><i class="key mem"></i>Memory <b id="lg-mem"></b></span>
           </div>
-
-          <div id="rgb-perled" hidden>
-            <div class="field col"><span class="field-label">Per-LED colors</span>
-              <div class="led-pickers" id="led-pickers"></div></div>
-          </div>
-
-          <div class="field"><span class="field-label">Brightness</span>
-            <input type="range" id="rgb-brightness" min="0" max="100"><span class="val" id="rgb-brightness-val">100</span></div>
         </div>
-        <div class="rgb-preview"><div class="leds" id="leds"></div></div>
+        <svg class="plot" id="plot-load" role="img" aria-label="CPU and memory load in percent"></svg>
       </div>
-    </section>
-    <section class="card col-4">
-      <h2>Case fans</h2>
-      <div class="fan-state">
-        <div class="fan-badge" id="fan-badge">OFF</div>
-        <div class="muted">on/off via GPIO 6</div>
+      <div class="plot-box">
+        <div class="plot-head">
+          <h3>Temperature</h3>
+          <div class="legend"><span><b id="lg-temp"></b></span></div>
+        </div>
+        <svg class="plot" id="plot-temp" role="img" aria-label="CPU temperature"></svg>
       </div>
-      <div class="field"><span class="field-label">Mode</span>
-        <select id="fan-mode">
-          <option value="off">Off</option>
-          <option value="on">On</option>
-          <option value="auto">Above temperature</option>
+      <div class="tip" id="tip" hidden></div>
+    </div>
+  </section>
+
+  <article class="card span-3">
+    <h2>Power and health</h2>
+    <p class="value"><span id="power">n/a</span><small id="power-unit"></small></p>
+    <dl class="rows">
+      <div><dt>Input</dt><dd id="input-v">n/a</dd></div>
+      <div><dt>Core</dt><dd id="core-v">n/a</dd></div>
+      <div><dt>RTC battery</dt><dd id="batt-v">n/a</dd></div>
+    </dl>
+    <ul class="health" id="health">
+      <li data-k="undervoltage"><svg><use href="#i-none"/></svg><span>Voltage</span><em></em></li>
+      <li data-k="throttled"><svg><use href="#i-none"/></svg><span>Throttling</span><em></em></li>
+      <li data-k="freq_capped"><svg><use href="#i-none"/></svg><span>Frequency</span><em></em></li>
+      <li data-k="soft_temp"><svg><use href="#i-none"/></svg><span>Temp limit</span><em></em></li>
+    </ul>
+  </article>
+
+  <article class="card span-3">
+    <h2>Network</h2>
+    <dl class="rows">
+      <div><dt>Interface</dt><dd id="net-if">n/a</dd></div>
+      <div><dt>IP</dt><dd id="net-ip">n/a</dd></div>
+      <div><dt>MAC</dt><dd id="net-mac">n/a</dd></div>
+      <div><dt>Download</dt><dd id="net-down">n/a</dd></div>
+      <div><dt>Upload</dt><dd id="net-up">n/a</dd></div>
+      <div><dt>Link</dt><dd id="net-link">n/a</dd></div>
+    </dl>
+  </article>
+
+  <article class="card span-3">
+    <h2>System</h2>
+    <dl class="rows">
+      <div><dt>Model</dt><dd id="sys-model">n/a</dd></div>
+      <div><dt>Kernel</dt><dd id="sys-kernel">n/a</dd></div>
+      <div><dt>Uptime</dt><dd id="sys-uptime">n/a</dd></div>
+      <div><dt>Processes</dt><dd id="sys-procs">n/a</dd></div>
+      <div><dt>Load</dt><dd id="sys-load">n/a</dd></div>
+    </dl>
+  </article>
+
+  <article class="card span-3">
+    <h2>Case</h2>
+    <div class="oled"><canvas class="oled-canvas" width="128" height="64" aria-label="Copy of the display on the case"></canvas></div>
+    <dl class="rows">
+      <div><dt>Lighting</dt><dd><span class="leds"></span></dd></div>
+      <div><dt>Case fans</dt><dd id="case-fan">n/a</dd></div>
+    </dl>
+  </article>
+
+</div>
+
+<div id="settings" class="view grid" hidden>
+
+  <article class="card span-6">
+    <div class="card-head">
+      <h2><label for="rgb-enable">Lighting</label></h2>
+      <input class="switch" type="checkbox" id="rgb-enable" data-cfg="rgb.enable">
+    </div>
+    <div class="preview"><span class="leds"></span></div>
+    <div class="field">
+      <span class="label" id="l-sync">Colors</span>
+      <div class="seg" role="radiogroup" aria-labelledby="l-sync">
+        <label><input type="radio" name="rgb-sync" value="true" data-type="bool" data-cfg="rgb.sync"><span>All LEDs</span></label>
+        <label><input type="radio" name="rgb-sync" value="false" data-type="bool" data-cfg="rgb.sync"><span>Each LED</span></label>
+      </div>
+    </div>
+    <div id="rgb-synced">
+      <div class="field"><label class="label" for="rgb-color">Color</label><input type="color" id="rgb-color" data-cfg="rgb.color"></div>
+      <div class="field"><label class="label" for="rgb-style">Effect</label>
+        <select id="rgb-style" data-cfg="rgb.style">
+          <option value="solid">Solid</option>
+          <option value="breathing">Breathing</option>
+          <option value="flow">Flow</option>
+          <option value="flow_reverse">Flow reverse</option>
+          <option value="rainbow">Rainbow</option>
+          <option value="rainbow_reverse">Rainbow reverse</option>
+          <option value="hue_cycle">Hue cycle</option>
         </select></div>
-      <div class="field"><span class="field-label">On above</span>
-        <input type="range" id="fan-on-temp" min="30" max="90"><span class="val"><span id="fan-on-temp-val">55</span>°C</span></div>
-    </section>
+      <div class="field"><label class="label" for="rgb-speed">Speed</label>
+        <input type="range" id="rgb-speed" min="0" max="100" data-cfg="rgb.speed"><output for="rgb-speed"></output></div>
+    </div>
+    <div id="rgb-perled" hidden>
+      <div class="field"><span class="label">LED colors</span><div class="led-pickers" id="led-pickers"></div></div>
+    </div>
+    <div class="field"><label class="label" for="rgb-brightness">Brightness</label>
+      <input type="range" id="rgb-brightness" min="0" max="100" data-cfg="rgb.brightness"><output for="rgb-brightness" data-suffix="%"></output></div>
+  </article>
 
-    <!-- OLED (full width) -->
-    <section class="card col-12">
-      <h2>OLED Display</h2>
-      <div class="oled-body">
-        <div class="oled-settings">
-          <div class="field"><span class="field-label">Enable</span>
-            <label class="switch"><input type="checkbox" id="oled-enable"><span></span></label></div>
-          <div class="field"><span class="field-label">Rotation</span>
-            <select id="oled-rotation"><option value="0">0°</option><option value="180">180°</option></select></div>
-          <div class="field"><span class="field-label">Sleep after</span>
-            <input type="range" id="oled-sleep" min="0" max="120"><span class="val"><span id="oled-sleep-val">0</span>s</span></div>
-        </div>
-        <div class="oled-screen" id="oled-preview"></div>
+  <article class="card span-6">
+    <div class="card-head">
+      <h2><label for="oled-enable">Display</label></h2>
+      <input class="switch" type="checkbox" id="oled-enable" data-cfg="oled.enable">
+    </div>
+    <div class="preview"><div class="oled"><canvas class="oled-canvas" width="128" height="64" aria-label="Copy of the display on the case"></canvas></div></div>
+    <div class="field">
+      <span class="label" id="l-rot">Rotation</span>
+      <div class="seg" role="radiogroup" aria-labelledby="l-rot">
+        <label><input type="radio" name="oled-rot" value="0" data-type="int" data-cfg="oled.rotation"><span>0°</span></label>
+        <label><input type="radio" name="oled-rot" value="180" data-type="int" data-cfg="oled.rotation"><span>180°</span></label>
       </div>
-    </section>
+    </div>
+    <div class="field"><label class="label" for="oled-brightness">Brightness</label>
+      <input type="range" id="oled-brightness" min="0" max="100" data-cfg="oled.brightness"><output for="oled-brightness" data-suffix="%"></output></div>
+    <div class="field"><label class="label" for="oled-sleep">Sleep after</label>
+      <input type="number" id="oled-sleep" min="0" max="3600" step="1" data-cfg="oled.sleep_timeout"><span class="hint">seconds, 0 keeps it on</span></div>
+  </article>
 
-  </div>
+  <article class="card span-6">
+    <div class="card-head"><h2>Case fans</h2><span class="state" id="fan-state"></span></div>
+    <div class="field">
+      <span class="label" id="l-fan">Mode</span>
+      <div class="seg" role="radiogroup" aria-labelledby="l-fan">
+        <label><input type="radio" name="fan-mode" value="off" data-cfg="fan.mode"><span>Off</span></label>
+        <label><input type="radio" name="fan-mode" value="on" data-cfg="fan.mode"><span>On</span></label>
+        <label><input type="radio" name="fan-mode" value="auto" data-cfg="fan.mode"><span>Automatic</span></label>
+      </div>
+    </div>
+    <div class="field"><label class="label" for="fan-on-temp">On above</label>
+      <input type="range" id="fan-on-temp" min="30" max="90" data-cfg="fan.on_temp"><output for="fan-on-temp" data-fmt="temp"></output></div>
+    <p class="hint">In automatic mode the fans stop a few degrees below this temperature. The firmware controls the CPU tower fan.</p>
+  </article>
+
+  <article class="card span-6">
+    <div class="card-head"><h2>System</h2></div>
+    <div class="field">
+      <span class="label" id="l-unit">Temperature unit</span>
+      <div class="seg" role="radiogroup" aria-labelledby="l-unit">
+        <label><input type="radio" name="unit" value="C" data-cfg="system.temperature_unit"><span>°C</span></label>
+        <label><input type="radio" name="unit" value="F" data-cfg="system.temperature_unit"><span>°F</span></label>
+      </div>
+    </div>
+    <div class="field"><label class="label" for="sys-interval">Sample interval</label>
+      <input type="number" id="sys-interval" min="0.2" max="60" step="0.1" data-cfg="system.data_interval"><span class="hint">seconds</span></div>
+    <div class="field"><label class="label" for="hist-days">Keep history</label>
+      <input type="number" id="hist-days" min="1" max="365" step="1" data-cfg="history.retention_days"><span class="hint">days</span></div>
+  </article>
+
+</div>
 </main>
-<div class="toast" id="toast"></div>
+
+<div class="toast" id="toast" role="status"></div>
 <script src="/static/app.js"></script>
 </body>
 </html>
