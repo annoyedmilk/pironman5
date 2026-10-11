@@ -58,6 +58,7 @@
       <svg class="spark temp" id="temp-spark" viewBox="0 0 120 32" preserveAspectRatio="none" aria-hidden="true"></svg>
     </div>
     <p class="sub" id="temp-sub">&nbsp;</p>
+    <p class="sub" id="fan-sub">&nbsp;</p>
   </article>
 
   <article class="card tile span-3">
@@ -130,21 +131,24 @@
 
   <article class="card span-3">
     <h2>Network</h2>
-    <dl class="rows">
-      <div><dt>Interface</dt><dd id="net-if">n/a</dd></div>
-      <div><dt>IP</dt><dd id="net-ip">n/a</dd></div>
-      <div><dt>MAC</dt><dd id="net-mac">n/a</dd></div>
-      <div><dt>Download</dt><dd id="net-down">n/a</dd></div>
-      <div><dt>Upload</dt><dd id="net-up">n/a</dd></div>
-      <div><dt>Link</dt><dd id="net-link">n/a</dd></div>
-    </dl>
+    <div class="links" id="links"></div>
+    <template id="link-tpl">
+      <dl class="rows clip link">
+        <div><dt><i></i><b class="kind"></b><span class="name"></span></dt><dd class="ip"></dd></div>
+        <div><dt>Link</dt><dd class="detail"></dd></div>
+        <div><dt>Traffic</dt><dd class="flow"></dd></div>
+        <div class="mac-row"><dt>MAC</dt><dd class="mac"></dd></div>
+      </dl>
+    </template>
   </article>
 
   <article class="card span-3">
     <h2>System</h2>
-    <dl class="rows">
-      <div><dt>Model</dt><dd id="sys-model">n/a</dd></div>
+    <p class="lead" id="sys-model">n/a</p>
+    <dl class="rows clip">
+      <div><dt>OS</dt><dd id="sys-os">n/a</dd></div>
       <div><dt>Kernel</dt><dd id="sys-kernel">n/a</dd></div>
+      <div><dt>Bootloader</dt><dd id="sys-firmware">n/a</dd></div>
       <div><dt>Uptime</dt><dd id="sys-uptime">n/a</dd></div>
       <div><dt>Processes</dt><dd id="sys-procs">n/a</dd></div>
       <div><dt>Load</dt><dd id="sys-load">n/a</dd></div>

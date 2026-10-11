@@ -113,7 +113,6 @@ class Core:
         """Metrics, hardware state and config in one JSON-ready dict."""
         frame = asdict(self.sampler.sample)
         frame["case_fan_on"] = self.fan.on
-        frame["rgb_leds"] = self.rgb.colors
         frame["oled_preview"] = self.oled.preview
         frame["config"] = self.config.to_dict()
         frame["mock"] = self.mock

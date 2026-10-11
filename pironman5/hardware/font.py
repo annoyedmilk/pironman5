@@ -35,3 +35,14 @@ _LARGE = {
     "-": "00000 00000 00700 00700 00700 00700 00700 00700 00700 00700 00700 00700 00000 00000",
 }
 LARGE = {char: [int(column, 16) for column in columns.split()] for char, columns in _LARGE.items()}
+
+# 7 px icons that go with SMALL.
+BOLT = [0x08, 0x4C, 0x3E, 0x19, 0x08]
+FAN = [0x30, 0x33, 0x17, 0x3E, 0x74, 0x66, 0x06]
+WIRED = [0x60, 0x78, 0x6B, 0x0F, 0x6B, 0x78, 0x60]
+
+
+def bars(level: int) -> list[int]:
+    """Signal strength icon: 4 bars, the first level bars are full."""
+    full = (0x60, 0x78, 0x7E, 0x7F)
+    return [column for i in range(4) for column in [full[i] if i < level else 0x40] * 2 + [0]][:-1]

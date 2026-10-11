@@ -2,17 +2,37 @@
 
 from __future__ import annotations
 
+import fcntl
 import math
 import os
 import re
+import socket
+import struct
 import subprocess
 import time
+from dataclasses import dataclass, replace
 from typing import Any
 
 import psutil
 
 _THERMAL = "/sys/class/thermal/thermal_zone0/temp"
 _FAN_HWMON = "/sys/devices/platform/cooling_fan/hwmon"
+_NET = "/sys/class/net"
+_BOOTLOADER = "/proc/device-tree/chosen/bootloader/build-timestamp"
+_SIOCGIWRATE = 0x8B21  # wireless extensions ioctl: bit rate
+
+
+@dataclass(frozen=True)
+class Interface:
+    name: str
+    wireless: bool = False
+    up: bool = False  # the link has a carrier
+    ip: str | None = None
+    mac: str | None = None
+    speed: int | None = None  # Mbit/s
+    signal: int | None = None  # dBm
+    download: int = 0  # bytes per second
+    upload: int = 0
 
 
 def _read(path: str) -> str | None:
@@ -92,10 +112,56 @@ def _nvme_temperature() -> float | None:
     return None
 
 
+def _bootloader_date() -> str | None:
+    """Build date of the bootloader in the EEPROM."""
+    try:
+        with open(_BOOTLOADER, "rb") as f:
+            return time.strftime("%Y-%m-%d", time.gmtime(int.from_bytes(f.read(4), "big")))
+    except OSError:
+        return None
+
+
+def _signal(name: str) -> int | None:
+    """Signal level in dBm. A line of /proc/net/wireless is: name, status, link quality, level."""
+    for line in (_read("/proc/net/wireless") or "").splitlines():
+        fields = line.split()
+        if fields[:1] == [name + ":"]:
+            return int(float(fields[3]))
+    return None
+
+
+def _wifi(name: str) -> dict[str, Any]:
+    """Bit rate and signal level of a wireless interface."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            reply = fcntl.ioctl(s, _SIOCGIWRATE, struct.pack("16s16x", name.encode()))
+    except OSError:
+        return {}
+    # The reply is the interface name, then the rate in bit/s.
+    return {"speed": round(struct.unpack_from("i", reply, 16)[0] / 1e6) or None, "signal": _signal(name)}
+
+
+def _interface(name: str, addrs: dict[str, Any]) -> Interface:
+    path = os.path.join(_NET, name)
+    up = _read(os.path.join(path, "carrier")) == "1"
+    wireless = os.path.isdir(os.path.join(path, "wireless"))
+    ips = [a.address for a in addrs.get(name, ()) if a.family == socket.AF_INET]
+    link: dict[str, Any] = {}
+    if up and wireless:
+        link = _wifi(name)
+    elif up:
+        speed = int(_read(os.path.join(path, "speed")) or 0)
+        link = {"speed": speed if speed > 0 else None}
+    return Interface(
+        name, wireless, up, ips[0] if ips else None, _read(os.path.join(path, "address")), **link
+    )
+
+
 class PiBoard:
     def __init__(self) -> None:
         self.model = (_read("/proc/device-tree/model") or "").replace("\x00", "").strip() or None
-        self._rpm_path: str | None = None
+        self.firmware = _bootloader_date()
+        self._fan_dir: str | None = None
 
     def temperature(self) -> float | None:
         try:
@@ -103,14 +169,31 @@ class PiBoard:
         except ValueError:
             return None
 
-    def fan_rpm(self) -> int | None:
-        """Tachometer of the CPU tower fan."""
+    def _fan(self, name: str) -> int | None:
+        """One value of the CPU tower fan."""
         try:
-            if self._rpm_path is None:
-                self._rpm_path = os.path.join(_FAN_HWMON, os.listdir(_FAN_HWMON)[0], "fan1_input")
-            return int(_read(self._rpm_path) or "")
+            if self._fan_dir is None:
+                self._fan_dir = os.path.join(_FAN_HWMON, os.listdir(_FAN_HWMON)[0])
+            return int(_read(os.path.join(self._fan_dir, name)) or "")
         except (OSError, IndexError, ValueError):
             return None
+
+    def fan_rpm(self) -> int | None:
+        return self._fan("fan1_input")
+
+    def fan_percent(self) -> int | None:
+        """PWM duty that the firmware set."""
+        pwm = self._fan("pwm1")
+        return None if pwm is None else round(pwm * 100 / 255)
+
+    def interfaces(self) -> list[Interface]:
+        """The network interfaces that have a device, without throughput."""
+        try:
+            names = sorted(n for n in os.listdir(_NET) if os.path.exists(os.path.join(_NET, n, "device")))
+        except OSError:
+            return []
+        addrs = psutil.net_if_addrs()
+        return [_interface(name, addrs) for name in names]
 
     def slow(self) -> dict[str, Any]:
         """Sample fields that start a process. Read these at a low rate."""
@@ -127,6 +210,7 @@ class MockBoard:
     """Plausible values that follow the load of the host."""
 
     model = "Raspberry Pi 5 Model B (mock)"
+    firmware = "2025-01-01"
 
     def _load(self) -> float:
         return min(1.0, os.getloadavg()[0] / (os.cpu_count() or 1))
@@ -136,6 +220,14 @@ class MockBoard:
 
     def fan_rpm(self) -> int | None:
         return round(1200 + 3000 * self._load())
+
+    def fan_percent(self) -> int | None:
+        return round(30 + 70 * self._load())
+
+    def interfaces(self) -> list[Interface]:
+        wifi = Interface("wlan0", True, True, "192.168.1.20", "d8:3a:dd:00:00:02", 433, -57)
+        flow = round(2e6 * self._load())
+        return [Interface("eth0", mac="d8:3a:dd:00:00:01"), replace(wifi, download=flow, upload=flow // 8)]
 
     def slow(self) -> dict[str, Any]:
         return {

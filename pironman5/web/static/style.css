@@ -136,6 +136,7 @@ main { max-width: 1240px; margin: 0 auto; padding: 20px 24px 48px; transition: o
 .tile-main { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 10px; }
 .tile { display: flex; flex-direction: column; }
 .sub { color: var(--text-2); font-size: 12.5px; margin-top: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sub + .sub { margin-top: 2px; }
 .spark { flex: 1; max-width: 150px; height: 30px; overflow: visible; }
 .spark path { vector-effect: non-scaling-stroke; }
 .spark .line { fill: none; stroke: var(--c); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
@@ -159,6 +160,17 @@ main { max-width: 1240px; margin: 0 auto; padding: 20px 24px 48px; transition: o
 .rows dt { color: var(--text-2); white-space: nowrap; }
 .rows dd { text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; min-width: 0; }
 .value + .rows { margin-top: 6px; }
+.lead, .clip dd { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lead { font-weight: 600; margin-bottom: 4px; }
+
+/* network interfaces: one block of rows each. The state is a dot and a text, not color alone. */
+.link + .link { border-top: 1px solid var(--axis); margin-top: 4px; padding-top: 4px; }
+.link dt { display: flex; align-items: center; gap: 6px; }
+.link i { flex: none; width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--muted); }
+.link.up i { background: var(--good); border-color: var(--good); }
+.link b { font-weight: 600; color: var(--text); }
+.link .name { color: var(--muted); }
+.link:not(.up) dd { color: var(--text-2); }
 
 /* health: icon, label and state text, not color alone */
 .health { list-style: none; display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; border-top: 1px solid var(--grid); padding-top: 4px; }
@@ -243,6 +255,8 @@ input[type=color] { width: 40px; height: 30px; padding: 2px; border: 1px solid v
   .chart { flex: 1; min-height: 0; }
   .plot { flex: 1; height: auto; min-height: 0; }
 }
+/* A low window has no room for the MAC rows. */
+@media (min-width: 1081px) and (max-height: 859px) { .rows .mac-row { display: none; } }
 
 .toast {
   position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 20;

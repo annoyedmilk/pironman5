@@ -10,7 +10,7 @@ from typing import Any
 
 import psutil
 
-from .board import PiBoard
+from .board import Interface, PiBoard
 
 SLOW_INTERVAL = 10.0  # seconds between reads of slow-changing values
 
@@ -20,7 +20,9 @@ class Sample:
     time: float = 0.0
     hostname: str = ""
     model: str | None = None
+    os: str = ""
     kernel: str = ""
+    firmware: str | None = None  # build date of the bootloader
     uptime: float = 0.0
     # cpu
     cpu_percent: float = 0.0
@@ -31,6 +33,7 @@ class Sample:
     gpu_temperature: float | None = None
     cpu_voltage: float | None = None
     cpu_fan_rpm: int | None = None
+    cpu_fan_percent: int | None = None
     load_avg: list[float] | None = None
     processes: int = 0
     # memory
@@ -47,11 +50,7 @@ class Sample:
     disk_read: int | None = None
     disk_write: int | None = None
     # network, the interface of the default route is first
-    net_upload: int = 0
-    net_download: int = 0
-    link_speed: int | None = None
-    ips: dict[str, str] = field(default_factory=dict)
-    macs: dict[str, str] = field(default_factory=dict)
+    interfaces: list[Interface] = field(default_factory=list)
     # power
     power_watts: float | None = None
     input_voltage: float | None = None
@@ -69,24 +68,11 @@ def _route_ip() -> str | None:
         return None
 
 
-def _network() -> dict[str, Any]:
-    ips: dict[str, str] = {}
-    macs: dict[str, str] = {}
-    for name, addrs in psutil.net_if_addrs().items():
-        for addr in addrs:
-            if addr.family == socket.AF_INET and not addr.address.startswith("127."):
-                ips[name] = addr.address
-            if addr.family == psutil.AF_LINK and addr.address.strip("0:"):
-                macs[name] = addr.address
-    primary = _route_ip()
-    names = sorted(ips.keys() | macs.keys(), key=lambda n: (ips.get(n) != primary, n not in ips, n))
-    stats = psutil.net_if_stats()
-    speeds = [stats[n].speed for n in names if n in stats and stats[n].isup and stats[n].speed > 0]
-    return {
-        "ips": {n: ips[n] for n in names if n in ips},
-        "macs": {n: macs[n] for n in names if n in macs},
-        "link_speed": speeds[0] if speeds else None,
-    }
+def _os_name() -> str:
+    try:
+        return platform.freedesktop_os_release()["PRETTY_NAME"]
+    except (OSError, KeyError):
+        return platform.system()
 
 
 class Sampler:
@@ -95,20 +81,23 @@ class Sampler:
         self.sample = Sample(
             hostname=socket.gethostname(),
             model=board.model,
+            os=_os_name(),
             kernel=platform.release(),
+            firmware=board.firmware,
             cpu_count=psutil.cpu_count(),
         )
+        self._links: list[Interface] = []
         self._counters: tuple[Any, Any] | None = None
         self._counters_at = 0.0
         self._slow_at = -SLOW_INTERVAL
 
     def read(self) -> Sample:
         now = time.monotonic()
-        fields = self._fast(now)
+        fields: dict[str, Any] = {}
         if now - self._slow_at >= SLOW_INTERVAL:
             self._slow_at = now
-            fields.update(self._slow())
-        self.sample = replace(self.sample, **fields)
+            fields = self._slow()
+        self.sample = replace(self.sample, **fields, **self._fast(now))
         return self.sample
 
     def _fast(self, now: float) -> dict[str, Any]:
@@ -128,6 +117,7 @@ class Sampler:
             "cpu_freq": round(freq.current, 1) if freq else None,
             "cpu_temperature": self.board.temperature(),
             "cpu_fan_rpm": self.board.fan_rpm(),
+            "cpu_fan_percent": self.board.fan_percent(),
             "load_avg": load_avg,
             "processes": len(psutil.pids()),
             "memory_total": mem.total,
@@ -138,9 +128,9 @@ class Sampler:
             **self._rates(now),
         }
 
-    def _rates(self, now: float) -> dict[str, int]:
+    def _rates(self, now: float) -> dict[str, Any]:
         """Network and disk throughput per second since the last call."""
-        counters = (psutil.net_io_counters(), psutil.disk_io_counters())
+        counters = (psutil.net_io_counters(pernic=True), psutil.disk_io_counters())
         prev = self._counters or counters
         dt = max(1e-6, now - self._counters_at)
         self._counters, self._counters_at = counters, now
@@ -148,11 +138,18 @@ class Sampler:
         def rate(cur: int, old: int) -> int:
             return max(0, round((cur - old) / dt))
 
-        (net, disk), (old_net, old_disk) = counters, prev
-        out = {
-            "net_upload": rate(net.bytes_sent, old_net.bytes_sent),
-            "net_download": rate(net.bytes_recv, old_net.bytes_recv),
-        }
+        def flow(link: Interface) -> Interface:
+            cur, old = nets.get(link.name), old_nets.get(link.name)
+            if cur is None or old is None:
+                return link
+            return replace(
+                link,
+                download=rate(cur.bytes_recv, old.bytes_recv),
+                upload=rate(cur.bytes_sent, old.bytes_sent),
+            )
+
+        (nets, disk), (old_nets, old_disk) = counters, prev
+        out: dict[str, Any] = {"interfaces": [flow(link) for link in self._links]}
         if disk is not None and old_disk is not None:
             out["disk_read"] = rate(disk.read_bytes, old_disk.read_bytes)
             out["disk_write"] = rate(disk.write_bytes, old_disk.write_bytes)
@@ -160,11 +157,12 @@ class Sampler:
 
     def _slow(self) -> dict[str, Any]:
         disk = psutil.disk_usage("/")
+        primary = _route_ip()
+        self._links = sorted(self.board.interfaces(), key=lambda link: (link.ip != primary, not link.up))
         return {
             "disk_total": disk.total,
             "disk_used": disk.used,
             "disk_percent": disk.percent,
-            **_network(),
             **self.board.slow(),
         }
 

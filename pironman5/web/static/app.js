@@ -38,8 +38,9 @@ function fmtUptime(s) {
   return d ? `${d} d ${h} h` : h ? `${h} h ${m} min` : `${m} min`;
 }
 
-function set(id, value) {
-  const el = $(id), text = String(value);
+// Set the text of an element, or of the element with this id.
+function set(target, value) {
+  const el = typeof target === "string" ? $(target) : target, text = String(value);
   if (el.textContent !== text) el.textContent = text;
 }
 
@@ -79,8 +80,9 @@ function render(f) {
   const t = f.cpu_temperature;
   set("temp", t == null ? NA : toUnit(t).toFixed(1));
   set("temp-unit", t == null ? "" : `°${tempUnit()}`);
-  const rpm = f.cpu_fan_rpm == null ? NA : `${f.cpu_fan_rpm} rpm`;
-  set("temp-sub", `GPU ${fmtTemp(f.gpu_temperature)} · NVMe ${fmtTemp(f.nvme_temperature)} · fan ${rpm}`);
+  set("temp-sub", `GPU ${fmtTemp(f.gpu_temperature)} · NVMe ${fmtTemp(f.nvme_temperature)}`);
+  const fan = [f.cpu_fan_percent == null ? null : `${f.cpu_fan_percent} %`, f.cpu_fan_rpm == null ? null : `${f.cpu_fan_rpm} rpm`];
+  set("fan-sub", `CPU fan ${fan.filter(Boolean).join(" · ") || NA}`);
 
   set("lg-cpu", fmtPct(f.cpu_percent));
   set("lg-mem", fmtPct(f.memory_percent));
@@ -103,16 +105,12 @@ function render(f) {
   set("batt-v", fmtVolt(f.battery_voltage));
   renderHealth(f.throttle || {});
 
-  const [iface, ip] = Object.entries(f.ips)[0] || [NA, NA];
-  set("net-if", iface);
-  set("net-ip", ip);
-  set("net-mac", f.macs[iface] || NA);
-  set("net-down", fmtRate(f.net_download));
-  set("net-up", fmtRate(f.net_upload));
-  set("net-link", f.link_speed == null ? NA : `${f.link_speed} Mbps`);
+  renderLinks(f.interfaces);
 
   set("sys-model", f.model || NA);
+  set("sys-os", f.os || NA);
   set("sys-kernel", f.kernel || NA);
+  set("sys-firmware", f.firmware || NA);
   set("sys-uptime", fmtUptime(f.uptime));
   set("sys-procs", f.processes);
   set("sys-load", f.load_avg ? f.load_avg.map((v) => v.toFixed(2)).join("  ") : NA);
@@ -153,6 +151,24 @@ function renderCores(cores) {
   cores.forEach((v, i) => {
     box.children[i].style.setProperty("--v", `${v}%`);
     box.children[i].title = `Core ${i}: ${Math.round(v)} %`;
+  });
+}
+
+// One block of rows for each network interface: state and address, link details, throughput, MAC.
+function renderLinks(links) {
+  const box = $("links");
+  while (box.children.length < links.length) box.appendChild($("link-tpl").content.firstElementChild.cloneNode(true));
+  while (box.children.length > links.length) box.lastChild.remove();
+  links.forEach((link, i) => {
+    const el = box.children[i], part = (name) => el.querySelector(`.${name}`);
+    const speed = link.speed ? `${link.speed} Mbps` : null, signal = link.signal == null ? null : `${link.signal} dBm`;
+    el.classList.toggle("up", link.up);
+    set(part("kind"), link.wireless ? "Wi-Fi" : "Ethernet");
+    set(part("name"), link.name);
+    set(part("ip"), link.up ? link.ip || "No address" : "Not connected");
+    set(part("detail"), (link.up && [signal, speed].filter(Boolean).join(" · ")) || NA);
+    set(part("flow"), link.up ? `↓ ${fmtRate(link.download)} ↑ ${fmtRate(link.upload)}` : NA);
+    set(part("mac"), link.mac || NA);
   });
 }
 

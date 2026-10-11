@@ -7,11 +7,12 @@ import urllib.request
 from pironman5.web.server import ws_frame
 
 
-def test_status_returns_hardware_state(client):
+def test_status_returns_hardware_state(client, core):
+    core.tick()
     status, body = client.get("/api/v1/status")
     assert status == 200
     assert body["mock"] is True
-    assert "rgb_leds" in body
+    assert {link["name"] for link in body["interfaces"]} == {"eth0", "wlan0"}
     assert len(base64.b64decode(body["oled_preview"]["fb"])) == 1024
 
 
@@ -101,7 +102,7 @@ def _ws_text(reader):
 
 def test_stream_sends_frames(server, core):
     sock, reader = _ws_connect(server.server_address[1])
-    assert "rgb_leds" in _ws_text(reader)
+    assert "oled_preview" in _ws_text(reader)
     core.tick()
     assert _ws_text(reader)["hostname"]
     # A masked close frame ends the stream and frees the client slot.

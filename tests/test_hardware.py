@@ -4,13 +4,13 @@ import pytest
 
 from pironman5.config import Config, FanConfig, RGBConfig
 from pironman5.hardware.fan import decide
-from pironman5.hardware.oled import HEIGHT, WIDTH, OLEDDriver, draw, lines
+from pironman5.hardware.oled import HEIGHT, WIDTH, OLEDDriver, draw
 from pironman5.hardware.rgb import BLACK, EFFECTS, frame
-from pironman5.metrics import Sample
+from pironman5.metrics import Interface, Sample
 
-SAMPLE = Sample(
-    cpu_percent=11, cpu_temperature=47.3, memory_percent=38, disk_percent=2, ips={"eth0": "10.0.0.2"}
-)
+WIRED = Interface("eth0", up=True, ip="10.0.0.2")
+WIFI = Interface("wlan0", wireless=True, up=True, ip="10.0.0.3", signal=-60)
+SAMPLE = Sample(cpu_percent=11, cpu_temperature=47.3, memory_percent=38, disk_percent=2, interfaces=[WIRED])
 
 
 def test_fan_modes():
@@ -68,21 +68,29 @@ def test_oled_picture_fits_the_panel():
         memory_percent=100,
         disk_percent=100,
         power_watts=25.0,
-        ips={"eth0": "255.255.255.255"},
-        throttle={"undervoltage": "now"},
+        interfaces=[replace(WIFI, ip="255.255.255.255")],
     )
-    for sample in (SAMPLE, hot, Sample()):
+    alert = replace(hot, throttle={"undervoltage": "now"})
+    for sample in (SAMPLE, hot, alert, Sample()):
         canvas = draw(sample, cfg.merged({"system": {"temperature_unit": "F"}})[0], True)
         assert canvas.cols[WIDTH - 1] == 0
         assert all(column >> (HEIGHT - 1) == 0 for column in canvas.cols)
         assert len(canvas.pages(1, 1)) == WIDTH * HEIGHT // 8
 
 
-def test_oled_text_lines():
+def test_oled_status_line():
     cfg = Config().validate()
-    assert lines(SAMPLE, cfg) == ["CPU 11%   47C", "MEM 38%", "DISK 2%", "10.0.0.2"]
-    alert = replace(SAMPLE, throttle={"undervoltage": "now"})
-    assert lines(alert, cfg)[3] == "UNDERVOLTAGE"
+
+    def footer(**values):
+        return [column >> 53 for column in draw(replace(SAMPLE, **values), cfg, False).cols]
+
+    wired = footer()
+    # The icon shows the interface type. The first interface with an address wins.
+    assert footer(interfaces=[WIFI])[:8] != wired[:8]
+    assert footer(interfaces=[Interface("wlan0", wireless=True), WIRED]) == wired
+    # The time gives way to a long address, and an alert takes the full line.
+    assert any(wired[100:]) and not any(footer(interfaces=[replace(WIRED, ip="255.255.255.255")])[112:])
+    assert all(column == 0x3FF for column in footer(throttle={"undervoltage": "now"})[:20])
 
 
 class _Panel:
@@ -90,18 +98,22 @@ class _Panel:
         self.calls = []
 
     def __getattr__(self, name):
-        return lambda *args: self.calls.append((name, *args[:1]))
+        return lambda *args: self.calls.append((name, *args))
 
 
-def test_oled_sends_only_changed_pages():
+def test_oled_sends_only_changed_columns():
     cfg = Config().validate()
     driver = OLEDDriver(mock=True)
     driver._panel = panel = _Panel()
     driver.flush(cfg, driver.draw(cfg, SAMPLE, False))
-    assert [c[0] for c in panel.calls].count("write") == 8
+    assert [(page, column, len(data)) for _, page, column, data in panel.calls[-8:]] == [
+        (page, 0, WIDTH) for page in range(8)
+    ]
     panel.calls.clear()
     driver.flush(cfg, driver.draw(cfg, replace(SAMPLE, cpu_percent=12), False))
-    assert panel.calls in ([("write", 0)], [("write", 0), ("write", 1)])
+    # Only the bar end and the last digit of the CPU row change.
+    assert [call[1] for call in panel.calls] in ([2, 3], [3])
+    assert all(column > 30 and column + len(data) < WIDTH for _, _, column, data in panel.calls)
 
 
 def test_oled_brightness_sets_the_contrast_once():
