@@ -52,6 +52,8 @@ UV="$(command -v uv || echo "$HOME/.local/bin/uv")"
 
 echo "==> Creating environment at $PREFIX/venv with uv"
 mkdir -p "$PREFIX"
+# A new environment each time, so no package of an older version stays.
+rm -rf "$PREFIX/venv"
 "$UV" venv "$PREFIX/venv"
 "$UV" pip install --python "$PREFIX/venv/bin/python" "$REPO_DIR[hardware]"
 
