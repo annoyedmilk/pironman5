@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pironman5"
-version = "0.2.0"
+version = "0.2.1"
 description = "Single-device service for the Pironman 5 case on a Raspberry Pi 5"
 readme = "README.md"
 requires-python = ">=3.10"
