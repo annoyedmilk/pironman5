@@ -26,7 +26,8 @@ class OutputPin:
         self._gpio.output(self.number, int(on))
 
     def close(self) -> None:
-        self._gpio.cleanup(self.number)
+        # No cleanup(): it makes the pin an input, and the fans run when the pin is not low.
+        self.set(False)
 
 
 class NullPin:
