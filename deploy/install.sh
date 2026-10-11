@@ -68,6 +68,8 @@ mkdir -p "$PREFIX"
 rm -rf "$PREFIX/venv"
 "$UV" venv "$PREFIX/venv"
 "$UV" pip install --python "$PREFIX/venv/bin/python" "$REPO_DIR[hardware]"
+# setuptools writes these into the checkout, with root as the owner.
+rm -rf "$REPO_DIR/build" "$REPO_DIR/pironman5.egg-info"
 
 echo "==> Installing config and service"
 mkdir -p "$CONFIG_DIR"
