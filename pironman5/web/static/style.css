@@ -55,6 +55,8 @@
 }
 
 * { box-sizing: border-box; }
+/* A link to a view must not scroll it under the sticky header. */
+html { scroll-padding-top: 80px; }
 [hidden] { display: none !important; }
 
 body {
@@ -77,8 +79,8 @@ h1, h2, h3, p, dl, dd, ul { margin: 0; padding: 0; }
   border-bottom: 1px solid var(--border);
 }
 .brand { display: flex; align-items: baseline; gap: 10px; margin-right: auto; }
-.brand h1 { font-size: 16px; font-weight: 650; letter-spacing: -.01em; }
-#hostname { color: var(--text-2); font-size: 13px; }
+.brand h1 { font-size: 16px; font-weight: 650; letter-spacing: -.01em; white-space: nowrap; }
+#hostname { color: var(--text-2); font-size: 13px; white-space: nowrap; }
 .badge {
   font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
   padding: 1px 6px; border-radius: 5px; border: 1px solid var(--axis); color: var(--text-2);
@@ -112,13 +114,6 @@ main { max-width: 1240px; margin: 0 auto; padding: 20px 24px 48px; transition: o
 .span-3 { grid-column: span 3; }
 .span-6 { grid-column: span 6; }
 .span-12 { grid-column: span 12; }
-@media (max-width: 1080px) { .span-3 { grid-column: span 6; } }
-@media (max-width: 680px) {
-  .span-3, .span-6 { grid-column: span 12; }
-  .chart { grid-template-columns: 1fr; }
-  main, .top { padding-left: 16px; padding-right: 16px; }
-  .label { width: 104px; }
-}
 
 .card {
   background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
@@ -255,6 +250,26 @@ input[type=color] { width: 40px; height: 30px; padding: 2px; border: 1px solid v
   .chart { flex: 1; min-height: 0; }
   .plot { flex: 1; height: auto; min-height: 0; }
 }
+/* Narrow windows. These rules are after the base rules, so that they win. */
+@media (max-width: 1080px) { .span-3 { grid-column: span 6; } }
+@media (max-width: 680px) {
+  .span-3, .span-6 { grid-column: span 12; }
+  .chart { grid-template-columns: 1fr; }
+  main, .top { padding-left: 16px; padding-right: 16px; }
+  .label { width: 104px; }
+  /* One header row: the host name gives way, the connection state is the dot only. */
+  .top { flex-wrap: nowrap; gap: 8px; }
+  .top .seg a { padding: 4px 8px; }
+  .brand { min-width: 0; }
+  #hostname { overflow: hidden; text-overflow: ellipsis; }
+  .conn { min-width: 0; }
+  #conn-text { display: none; }
+  /* The range buttons share the row. */
+  #range { width: 100%; }
+  #range label, #range span { flex: 1; }
+  #range span { padding: 4px 0; text-align: center; font-size: 12px; }
+}
+
 /* A low window has no room for the MAC rows. */
 @media (min-width: 1081px) and (max-height: 859px) { .rows .mac-row { display: none; } }
 
