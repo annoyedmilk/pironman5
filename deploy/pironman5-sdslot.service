@@ -1,0 +1,15 @@
+[Unit]
+Description=Pironman 5: release the SD card slot when it is empty
+# The SD extender of the case reports a card in an empty slot. The kernel then
+# waits on that host at each shutdown and reboot (30 to 80 s). Without the
+# driver there is no wait. A card that is put in later needs a reboot.
+ConditionPathExists=/sys/bus/platform/drivers/sdhci-brcmstb/1000fff000.mmc
+ConditionPathExistsGlob=!/sys/bus/platform/devices/1000fff000.mmc/mmc_host/*/mmc*:*
+
+[Service]
+# The unbind takes up to 60 s after a boot. Type=exec keeps that time out of the boot.
+Type=exec
+ExecStart=/bin/sh -c 'echo 1000fff000.mmc > /sys/bus/platform/drivers/sdhci-brcmstb/unbind'
+
+[Install]
+WantedBy=multi-user.target

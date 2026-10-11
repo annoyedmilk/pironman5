@@ -4,7 +4,7 @@
 # Run from a checkout of this repository: sudo ./deploy/install.sh
 #
 # It creates a dedicated service user, installs the package into a virtualenv
-# under /opt/pironman5, drops the device-tree overlay and systemd unit, then
+# under /opt/pironman5, drops the device-tree overlay and systemd units, then
 # enables the service. If uv is absent, its upstream install script is
 # downloaded and run.
 
@@ -62,10 +62,11 @@ echo "==> Installing config and service"
 mkdir -p "$CONFIG_DIR"
 chown "$SERVICE_USER:$SERVICE_USER" "$CONFIG_DIR"
 install -m 0644 "$REPO_DIR/deploy/pironman5.service" /etc/systemd/system/pironman5.service
+install -m 0644 "$REPO_DIR/deploy/pironman5-sdslot.service" /etc/systemd/system/pironman5-sdslot.service
 
 systemctl daemon-reload
-systemctl enable pironman5
-systemctl restart pironman5
+systemctl enable pironman5 pironman5-sdslot
+systemctl restart pironman5 pironman5-sdslot
 
 echo
 echo "Done. The dashboard is on http://<this-pi>:34001"

@@ -53,7 +53,7 @@ sudo ./deploy/install.sh
 
 The installer creates a dedicated `pironman5` service user, installs the package
 into a virtualenv under `/opt/pironman5`, enables SPI/I2C, installs the
-device-tree overlay and systemd unit, and starts the service. Open
+device-tree overlay and systemd units, and starts the service. Open
 `http://<your-pi>:34001` for the dashboard. A reboot is recommended so the
 overlays take effect.
 
