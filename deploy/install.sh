@@ -80,5 +80,6 @@ systemctl enable pironman5 pironman5-sdslot
 systemctl restart pironman5 pironman5-sdslot
 
 echo
-echo "Done. The dashboard is on http://<this-pi>:34001"
+ADDR="$(hostname -I 2>/dev/null | awk '{print $1}')" || true
+echo "Done. The dashboard is on http://${ADDR:-$(hostname)}:34001"
 echo "Reboot so the SPI/I2C overlays and the bootloader config take effect."
