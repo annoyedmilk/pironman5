@@ -4,9 +4,9 @@
 # Run from a checkout of this repository: sudo ./deploy/install.sh
 #
 # It creates a dedicated service user, installs the package into a virtualenv
-# under /opt/pironman5, drops the device-tree overlay and systemd units, then
-# enables the service. If uv is absent, its upstream install script is
-# downloaded and run.
+# under /opt/pironman5, drops the device-tree overlay and systemd units, sets
+# POWER_OFF_ON_HALT=1 in the bootloader config, then enables the service. If
+# uv is absent, its upstream install script is downloaded and run.
 
 set -euo pipefail
 
@@ -31,6 +31,17 @@ echo "==> Installing device-tree overlay"
 install -m 0644 "$REPO_DIR/deploy/overlays/sunfounder-pironman5.dtbo" \
     /boot/firmware/overlays/ 2>/dev/null || \
 install -m 0644 "$REPO_DIR/deploy/overlays/sunfounder-pironman5.dtbo" /boot/overlays/
+
+echo "==> Setting POWER_OFF_ON_HALT=1 in the bootloader config"
+# In halt the Pi 5 keeps 3.3 V on and GPIO6 goes back to its pull-up, so the case fans run.
+BOOT_CONF="$(mktemp)"
+if ! rpi-eeprom-config > "$BOOT_CONF" 2>/dev/null; then
+    echo "    cannot read the bootloader config, skipped" >&2
+elif ! grep -q '^POWER_OFF_ON_HALT=' "$BOOT_CONF"; then  # a value that the user set stays
+    printf '\n[all]\nPOWER_OFF_ON_HALT=1\n' >> "$BOOT_CONF"
+    rpi-eeprom-config --apply "$BOOT_CONF" || echo "    cannot write the bootloader config, skipped" >&2
+fi
+rm -f "$BOOT_CONF"
 
 echo "==> Creating service user '$SERVICE_USER'"
 id -u "$SERVICE_USER" &>/dev/null || useradd --system --no-create-home --shell /usr/sbin/nologin "$SERVICE_USER"
@@ -70,4 +81,4 @@ systemctl restart pironman5 pironman5-sdslot
 
 echo
 echo "Done. The dashboard is on http://<this-pi>:34001"
-echo "A reboot is recommended so the SPI/I2C overlays take effect."
+echo "Reboot so the SPI/I2C overlays and the bootloader config take effect."

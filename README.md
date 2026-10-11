@@ -53,9 +53,11 @@ sudo ./deploy/install.sh
 
 The installer creates a dedicated `pironman5` service user, installs the package
 into a virtualenv under `/opt/pironman5`, enables SPI/I2C, installs the
-device-tree overlay and systemd units, and starts the service. Open
-`http://<your-pi>:34001` for the dashboard. A reboot is recommended so the
-overlays take effect.
+device-tree overlay and systemd units, and starts the service. It also sets
+`POWER_OFF_ON_HALT=1` in the bootloader config, unless the option is already
+set, so the case fans stop when the Pi is shut down. Open
+`http://<your-pi>:34001` for the dashboard. Reboot so the overlays and the
+bootloader config take effect.
 
 ### On a development machine (no hardware)
 
