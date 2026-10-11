@@ -45,10 +45,11 @@ apt-get update -qq
 apt-get install -y python3-dev liblgpio-dev swig i2c-tools
 
 echo "==> Ensuring uv is available"
-if ! command -v uv >/dev/null 2>&1; then
+# sudo does not put ~/.local/bin on PATH, so also look where the uv installer puts it.
+UV="$(command -v uv || echo "$HOME/.local/bin/uv")"
+if [[ ! -x $UV ]]; then
     curl -LsSf https://astral.sh/uv/install.sh | sh
 fi
-UV="$(command -v uv || echo "$HOME/.local/bin/uv")"
 
 echo "==> Creating environment at $PREFIX/venv with uv"
 mkdir -p "$PREFIX"
