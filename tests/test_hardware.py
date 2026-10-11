@@ -1,3 +1,4 @@
+import threading
 from dataclasses import replace
 
 import pytest
@@ -5,7 +6,7 @@ import pytest
 from pironman5.config import Config, FanConfig, RGBConfig
 from pironman5.hardware.fan import decide
 from pironman5.hardware.oled import HEIGHT, WIDTH, OLEDDriver, draw
-from pironman5.hardware.rgb import BLACK, EFFECTS, frame
+from pironman5.hardware.rgb import BLACK, EFFECTS, RGBDriver, frame
 from pironman5.metrics import Interface, Sample
 
 WIRED = Interface("eth0", up=True, ip="10.0.0.2")
@@ -57,6 +58,35 @@ def test_flow_moves_one_led_and_reverses():
     cfg = _rgb(style="flow", color="#ffffff", speed=100)
     assert [frame(cfg, 0.1 * i + 0.05)[0].index((255, 255, 255)) for i in range(5)] == [0, 1, 2, 3, 0]
     assert frame(replace(cfg, style="flow_reverse"), 0.05)[0].index((255, 255, 255)) == 3
+
+
+class _StopAfterCheck(threading.Event):
+    """Does what stop() does, at the first use of the event after the loop check."""
+
+    def __init__(self, driver):
+        super().__init__()
+        self._driver = driver
+
+    def _stop(self):
+        if self._driver._running:
+            self._driver._running = False
+            self.set()
+
+    def clear(self):
+        self._stop()
+        super().clear()
+
+    def wait(self, timeout=None):
+        self._stop()
+        return super().wait(timeout)
+
+
+def test_rgb_thread_does_not_lose_a_stop_with_a_static_frame():
+    driver = RGBDriver(_rgb(style="solid"), mock=True)
+    driver._wake = _StopAfterCheck(driver)
+    driver.start()
+    driver._thread.join(timeout=2)
+    assert not driver._thread.is_alive()
 
 
 def test_oled_picture_fits_the_panel():

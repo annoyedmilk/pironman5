@@ -155,7 +155,6 @@ class RGBDriver:
         """Thread body. A static frame waits for the next config change."""
         log.info("rgb driver started (style=%s)", self.cfg.style)
         while self._running:
-            self._wake.clear()
             try:
                 colors, delay = frame(self.cfg, time.monotonic())
                 self._show(colors)
@@ -163,6 +162,8 @@ class RGBDriver:
                 log.exception("rgb frame failed")
                 delay = 1.0
             self._wake.wait(delay)
+            # Clear after the wait. A clear before it can lose the wake of stop().
+            self._wake.clear()
 
     def stop(self) -> None:
         self._running = False
